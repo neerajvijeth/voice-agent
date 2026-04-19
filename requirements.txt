@@ -1,0 +1,42 @@
+# voice_agent/requirements.txt
+# Pin approximate versions that are known to work together.
+# Install with:  pip install -r requirements.txt
+
+# ── Audio capture & playback ──────────────────────────────────────────────────
+sounddevice>=0.4.6
+numpy>=1.24
+
+# ── Voice Activity Detection ──────────────────────────────────────────────────
+webrtcvad>=2.0.10   # lightweight, fast, C extension
+# Alternative: silero-vad (better accuracy, needs torch)
+# pip install silero-vad torch torchaudio
+
+# ── Speech-to-Text ────────────────────────────────────────────────────────────
+faster-whisper>=1.0.0
+# CTranslate2 is a dependency of faster-whisper – installed automatically
+
+# ── TTS (install the backend you want) ───────────────────────────────────────
+# Option 1: edge-tts (free cloud, great quality)
+edge-tts>=6.1.9
+
+# Option 2: pyttsx3 (offline, robotic)
+pyttsx3>=2.90
+
+# Option 3: piper – install binary separately (see README / setup.sh)
+# piper is a standalone binary, not a pip package
+
+# ── Audio decoding for edge-tts MP3 output ────────────────────────────────────
+pydub>=0.25.1
+# pydub requires ffmpeg system binary:
+#   macOS:  brew install ffmpeg
+#   Linux:  sudo apt install ffmpeg
+#   Windows: https://ffmpeg.org/download.html
+
+# ── LLM (Google Gemini API) ───────────────────────────────────────────────────
+google-genai>=1.0.0
+python-dotenv>=1.0.0
+
+# ── RAG (Retrieval Augmented Generation) ──────────────────────────────────────
+python-docx>=1.1.0
+python-pptx>=1.0.0
+rank-bm25>=0.2.2
