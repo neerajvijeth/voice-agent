@@ -20,11 +20,11 @@ VAD_FRAME_SAMPLES  = int(SAMPLE_RATE * VAD_FRAME_MS / 1000)  # 480 samples
 VAD_FRAME_BYTES    = VAD_FRAME_SAMPLES * 2  # int16 → 2 bytes/sample
 
 # How aggressive the VAD is (0 = least, 3 = most aggressive noise filtering)
-VAD_AGGRESSIVENESS = 2
+VAD_AGGRESSIVENESS = 3
 
 # Consecutive silent frames needed before we consider speech ended
-# 30 ms × 25 = 750 ms of trailing silence → end of utterance
-VAD_SILENCE_FRAMES = 25
+# 30 ms × 17 = 510 ms of trailing silence → end of utterance (was 25 = 750ms)
+VAD_SILENCE_FRAMES = 17
 
 # Maximum utterance length before we force a cut (prevents runaway recording)
 MAX_UTTERANCE_SEC  = 15
@@ -38,26 +38,40 @@ MAX_UTTERANCE_SEC  = 15
 #   small  → ~1.5-2.5 s, better accuracy
 #   medium → ~4-6 s, not great for live use on CPU
 WHISPER_MODEL        = "base.en"
-WHISPER_DEVICE       = "cpu"       # change to "cuda" if you have an NVIDIA GPU
-WHISPER_COMPUTE_TYPE = "int8"      # int8 quantization – fastest on CPU
-WHISPER_LANGUAGE     = "en"        # hardcoded to skip auto-detect penalty
-WHISPER_BEAM_SIZE    = 1           # greedy decoding – fastest
-WHISPER_VAD_FILTER   = True        # built-in Whisper VAD pre-filter – skip silence
+WHISPER_DEVICE       = "cuda"        # GPU acceleration (RTX 5050)
+WHISPER_COMPUTE_TYPE = "float16"     # float16 on GPU for best speed
+WHISPER_LANGUAGE     = "en"          # hardcoded to skip auto-detect penalty
+WHISPER_BEAM_SIZE    = 1             # greedy decoding – fastest
+WHISPER_VAD_FILTER   = False         # relying on pipeline WebRTC VAD instead
 
 # ─────────────────────────────────────────
 # LLM  (Google Gemini API)
 # ─────────────────────────────────────────
 GEMINI_API_KEY   = os.environ.get("GEMINI_API_KEY", "")  # loaded from .env
-GEMINI_MODEL     = "gemini-2.5-flash"    # smart model with thinking
-LLM_MAX_TOKENS   = 1024            # thinking models need more headroom (thinking tokens + response)
+GEMINI_MODEL     = "gemini-2.5-flash"    # with thinking disabled for low latency
+GEMINI_THINKING_BUDGET = 0               # 0 = no thinking tokens, fast TTFT
+LLM_MAX_TOKENS   = 256             # concise voice responses don't need more
 LLM_TEMPERATURE  = 0.7
 
 # ─────────────────────────────────────────
 # RAG  (Retrieval Augmented Generation)
 # ─────────────────────────────────────────
-RAG_ENABLED        = True
-RAG_DOCUMENTS_DIR  = "./documents/"    # drop .docx/.pptx files here
-RAG_TOP_K          = 3                 # number of chunks to retrieve per query
+RAG_ENABLED             = True
+RAG_DOCUMENTS_DIR       = "./documents/"    # drop .docx/.pptx files here
+RAG_TOP_K               = 3                 # number of chunks to retrieve per query
+RAG_SIMILARITY_THRESHOLD = 0.35             # minimum cosine similarity to include a chunk
+RAG_CHUNK_SIZE          = 512               # characters per chunk
+RAG_CHUNK_OVERLAP       = 64                # overlap between adjacent chunks
+RAG_EMBEDDING_MODEL     = "all-MiniLM-L6-v2"  # fast, 384-dim embeddings
+
+# ─────────────────────────────────────────
+# PostgreSQL + pgvector
+# ─────────────────────────────────────────
+PG_HOST     = "localhost"
+PG_PORT     = 5432
+PG_DBNAME   = "voice_agent"
+PG_USER     = "naren"
+PG_PASSWORD = "voiceagent"
 
 # ─────────────────────────────────────────
 # TEXT-TO-SPEECH

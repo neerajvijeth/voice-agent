@@ -109,20 +109,37 @@ class EdgeTTS(BaseTTS):
     Uses Microsoft Edge TTS via the `edge-tts` Python package.
     Free, high quality, requires internet.
     Returns MP3 which we decode to PCM with pydub/ffmpeg.
+
+    Uses a persistent asyncio event loop to avoid the overhead of
+    creating/tearing down event loops per call (which causes 20-30s
+    hangs when called from background threads).
     """
 
     def __init__(self):
+        import threading
+        import asyncio
+
         try:
             import edge_tts  # noqa
             print(f"[TTS] edge-tts ready (voice: {EDGE_TTS_VOICE})")
         except ImportError:
             print("[TTS] edge-tts not installed. Run: pip install edge-tts")
 
+        # Persistent event loop running in a dedicated thread
+        self._loop = asyncio.new_event_loop()
+        self._loop_thread = threading.Thread(
+            target=self._loop.run_forever, daemon=True
+        )
+        self._loop_thread.start()
+
     def synthesize(self, text: str) -> tuple[bytes, int]:
         import asyncio
         t0 = time.time()
         try:
-            pcm, sr = asyncio.run(self._async_synthesize(text))
+            future = asyncio.run_coroutine_threadsafe(
+                self._async_synthesize(text), self._loop
+            )
+            pcm, sr = future.result(timeout=15)
             print(f"[TTS] edge-tts synthesized in {time.time()-t0:.2f}s")
             return pcm, sr
         except Exception as e:

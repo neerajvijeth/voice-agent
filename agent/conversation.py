@@ -198,7 +198,9 @@ class VoiceAgent:
             print(f"[Agent] Total response time: {time.time()-t_start:.2f}s\n")
 
         finally:
-            # Unmute mic
+            # Unmute mic and reset VAD state for clean detection
             self.mic.is_playing = False
             self.mic.flush_queue()
+            self.vad.reset()          # clear stale VAD state from during playback
             self._processing = False
+            print("[Agent] Listening...\n")

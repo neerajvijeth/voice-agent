@@ -58,6 +58,11 @@ class MicCapture:
         Return the next complete VAD frame as raw bytes, or None if no
         data is available yet.  Call this in a loop from the main thread.
         """
+        if len(self._remainder) >= VAD_FRAME_SAMPLES:
+            frame           = self._remainder[:VAD_FRAME_SAMPLES]
+            self._remainder = self._remainder[VAD_FRAME_SAMPLES:]
+            return frame.tobytes()
+
         try:
             chunk = self._q.get_nowait()
         except queue.Empty:

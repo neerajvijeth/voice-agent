@@ -8,6 +8,7 @@ numpy>=1.24
 
 # ── Voice Activity Detection ──────────────────────────────────────────────────
 webrtcvad>=2.0.10   # lightweight, fast, C extension
+setuptools<70       # required by webrtcvad which uses deprecated pkg_resources
 # Alternative: silero-vad (better accuracy, needs torch)
 # pip install silero-vad torch torchaudio
 
@@ -36,7 +37,14 @@ pydub>=0.25.1
 google-genai>=1.0.0
 python-dotenv>=1.0.0
 
-# ── RAG (Retrieval Augmented Generation) ──────────────────────────────────────
+# ── RAG (Retrieval Augmented Generation) — pgvector ──────────────────────────
 python-docx>=1.1.0
 python-pptx>=1.0.0
-rank-bm25>=0.2.2
+psycopg2-binary>=2.9.0    # PostgreSQL driver
+pgvector>=0.3.0            # pgvector Python bindings
+sentence-transformers>=3.0.0  # embedding model
+
+# ── GPU acceleration ─────────────────────────────────────────────────────────
+# PyTorch with CUDA — install separately for your CUDA version:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu128
+# Do NOT install torch from this file — the default pip version is CPU-only.

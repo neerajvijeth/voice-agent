@@ -14,15 +14,48 @@ Strategy for low latency:
   - Accumulate until we have a "speakable chunk" (sentence boundary or N tokens)
   - Yield the chunk for TTS to start immediately
   - Continue accumulating while first chunk plays
+
+RAG integration:
+  - Casual queries (hi, hello, how are you) skip RAG entirely
+  - Only chunks above the similarity threshold are injected as context
+  - Detailed logging of retrieval decisions
 """
 
+import re
 import time
 from google import genai
 from config import (
-    GEMINI_API_KEY, GEMINI_MODEL, LLM_MAX_TOKENS,
-    LLM_TEMPERATURE, SYSTEM_PROMPT,
+    GEMINI_API_KEY, GEMINI_MODEL, GEMINI_THINKING_BUDGET,
+    LLM_MAX_TOKENS, LLM_TEMPERATURE, SYSTEM_PROMPT,
     RAG_ENABLED, RAG_DOCUMENTS_DIR, RAG_TOP_K,
 )
+
+
+# ── Casual query detection ────────────────────────────────────────────────────
+
+_CASUAL_PATTERNS = [
+    r"^(hi|hey|hello|yo|sup|hola|howdy)\b",
+    r"^how\s+(are|r)\s+(you|u|ya)",
+    r"^what'?s?\s+up",
+    r"^good\s+(morning|afternoon|evening|night)",
+    r"^(thanks|thank\s+you|thx|ty)\b",
+    r"^(bye|goodbye|see\s+you|later|cya)\b",
+    r"^(ok|okay|sure|alright|got\s+it)\s*$",
+    r"^(yes|no|yeah|nah|yep|nope)\s*$",
+]
+_CASUAL_RE = re.compile("|".join(_CASUAL_PATTERNS), re.IGNORECASE)
+
+
+def _is_casual_query(text: str) -> bool:
+    """
+    Detect short greetings and chitchat that shouldn't trigger RAG.
+    Returns True for things like "hi", "how are you", "thanks", etc.
+    """
+    text = text.strip()
+    # Single-word greetings (hi, hello, hey, etc.)
+    if len(text.split()) == 1 and len(text) < 10:
+        return bool(_CASUAL_RE.match(text))
+    return bool(_CASUAL_RE.match(text))
 
 
 class LLMResponder:
@@ -91,12 +124,15 @@ class LLMResponder:
         # ── RAG: retrieve relevant context ──
         rag_context = ""
         if self.retriever:
-            context_str, sources = self.retriever.retrieve(user_text, top_k=RAG_TOP_K)
-            if sources:
-                rag_context = context_str
-                print(f"[RAG] Sources:")
-                for s in sources:
-                    print(f"  → {s['file']}, {s['location']}: {s['snippet']}")
+            if _is_casual_query(user_text):
+                print(f"[RAG] Query: \"{user_text}\" → SKIPPED (casual greeting/chitchat)")
+            else:
+                context_str, sources = self.retriever.retrieve(user_text, top_k=RAG_TOP_K)
+                if sources:
+                    rag_context = context_str
+                    print(f"[RAG] Injecting {len(sources)} chunks into LLM context")
+                else:
+                    print(f"[RAG] No relevant chunks found for: \"{user_text[:50]}\"")
 
         contents = self._build_contents(rag_context=rag_context)
 
@@ -106,14 +142,19 @@ class LLMResponder:
         full_response = ""
 
         try:
-            response = self.client.models.generate_content_stream(
-                model=GEMINI_MODEL,
-                contents=contents,
-                config={
+            gen_config = {
                     "system_instruction": SYSTEM_PROMPT,
                     "max_output_tokens": LLM_MAX_TOKENS,
                     "temperature": LLM_TEMPERATURE,
-                },
+                }
+            # Disable thinking for low-latency voice responses
+            if GEMINI_THINKING_BUDGET is not None:
+                gen_config["thinking_config"] = {"thinking_budget": GEMINI_THINKING_BUDGET}
+
+            response = self.client.models.generate_content_stream(
+                model=GEMINI_MODEL,
+                contents=contents,
+                config=gen_config,
             )
 
             for chunk in response:

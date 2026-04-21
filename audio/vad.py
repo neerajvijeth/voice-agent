@@ -58,18 +58,18 @@ class VADProcessor:
                 self._speaking      = True
                 self._silence_count = 0
                 # Prepend pre-roll so we don't miss the utterance start
-                self._audio_buf = list(self._pre_roll) + []
-                self._audio_buf.append(frame_np)
+                self._audio_buf = list(self._pre_roll)
         else:
             self._audio_buf.append(frame_np)
             if is_speech:
                 self._silence_count = 0
             else:
                 self._silence_count += 1
-                # End utterance on enough silence OR max duration
-                if (self._silence_count >= VAD_SILENCE_FRAMES or
-                        len(self._audio_buf) >= self._max_frames):
-                    self._flush()
+                
+            # End utterance on enough silence OR max duration
+            if (self._silence_count >= VAD_SILENCE_FRAMES or
+                    len(self._audio_buf) >= self._max_frames):
+                self._flush()
 
         return self._speaking
 
@@ -85,6 +85,13 @@ class VADProcessor:
     def force_flush(self):
         """Call this to end an utterance manually (e.g. push-to-talk release)."""
         self._flush()
+
+    def reset(self):
+        """Fully reset VAD state. Call after playback to ensure clean detection."""
+        self._audio_buf     = []
+        self._speaking      = False
+        self._silence_count = 0
+        self._pre_roll.clear()
 
     @property
     def is_speaking(self) -> bool:
